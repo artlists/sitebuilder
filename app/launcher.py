@@ -133,9 +133,11 @@ def shutil_copy(src, dst):
 
 
 def port_busy(host, port):
-    with socket.socket() as s:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((host, port))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
             return False
         except OSError:
             return True

@@ -35,7 +35,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build with PyInstaller
-        run: pyinstaller app/sitebuilder.spec
+        run: pyinstaller sitebuilder.spec
 
       - name: Prepare Windows artifact
         if: runner.os == 'Windows'

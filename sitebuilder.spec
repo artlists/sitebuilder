@@ -1,7 +1,7 @@
 # SiteBuilder desktop build (Windows + macOS)
 #
 # Usage:
-#   pyinstaller app/sitebuilder.spec
+#   pyinstaller sitebuilder.spec
 #
 # Windows: single-file console exe (dist/SiteBuilder.exe) — shows the admin
 #          URL and credentials, keeps the server alive until closed.
@@ -20,12 +20,25 @@ datas = [
     ("starter", "starter"),
 ]
 
+# server.py + build.py are copied into the workspace at runtime, so their
+# imports are not visible to PyInstaller's static analysis — declare them:
+hiddenimports = [
+    "http",
+    "http.server",
+    "urllib.parse",
+    "re",
+    "hmac",
+    "subprocess",
+    "difflib",
+    "argparse",
+]
+
 a = Analysis(
     ["app/launcher.py"],
     pathex=["."],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
