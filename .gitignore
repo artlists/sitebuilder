@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+*.spec.bak
+
+# Local secrets / personal data never enter the repo
+engine/admin/.secret
+engine/admin/users.json
+engine/admin/secrets.env
+engine/admin/publish.log
+engine/admin/publish.json
+engine/admin/deploy_history.json
+engine/admin/sites.json
+
+# Workspaces / output
+site/
+sites/
+media/
+ADMIN-CREDENTIALS.txt
+
+# OS noise
+.DS_Store
+Thumbs.db

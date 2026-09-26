@@ -1,0 +1,142 @@
+{
+  "site": {
+    "name": "My Site",
+    "logo_text": "My Site",
+    "bio_h2": "About",
+    "title": "My Site — welcome",
+    "domain": "https://example.pages.dev",
+    "hero": "",
+    "og_image_width": 1920,
+    "og_image_height": 1280,
+    "locale": "en_US",
+    "behance_url": "",
+    "favicon": ""
+  },
+  "seo": {
+    "meta_description": "My site description.",
+    "keywords": "my site",
+    "og_description": "",
+    "twitter_description": "",
+    "job_title": "",
+    "ld_description": "",
+    "knows_about": [],
+    "behance_url": "",
+    "analytics_snippet": "",
+    "favicon": ""
+  },
+  "social": {
+    "instagram_url": "https://instagram.com/you",
+    "instagram_handle": "you",
+    "bandcamp_url": "",
+    "behance_url": "",
+    "bandcamp_label": "",
+    "instagram_label": "",
+    "booking_label": ""
+  },
+  "music": [],
+  "watch": [],
+  "press": [],
+  "bio": [],
+  "pages": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "gallery",
+      "show_in_menu": true
+    },
+    {
+      "id": "info",
+      "label": "Bio",
+      "type": "info",
+      "show_in_menu": true
+    }
+  ],
+  "news": [],
+  "deploy": {
+    "provider": "cloudflare_pages",
+    "project_name": "",
+    "domain": "",
+    "repo": ""
+  },
+  "kinds": {
+    "music": {
+      "label": "Music",
+      "text": [
+        "span"
+      ],
+      "inputs": [
+        "url",
+        "img",
+        "audio",
+        "alt"
+      ],
+      "required": [
+        "img",
+        "span"
+      ]
+    },
+    "watch": {
+      "label": "Watch",
+      "text": [
+        "caption"
+      ],
+      "inputs": [
+        "src",
+        "poster"
+      ],
+      "required": [
+        "variant",
+        "src",
+        "caption"
+      ],
+      "variants": [
+        "classic",
+        "center",
+        "portrait",
+        "tall"
+      ]
+    },
+    "press": {
+      "label": "Press",
+      "text": [
+        "text"
+      ],
+      "inputs": [
+        "url",
+        "img"
+      ],
+      "required": [
+        "url",
+        "img",
+        "text"
+      ]
+    },
+    "news": {
+      "label": "News",
+      "text": [
+        "span",
+        "body"
+      ],
+      "inputs": [
+        "img",
+        "link",
+        "link_label"
+      ],
+      "required": [
+        "img",
+        "span"
+      ],
+      "list": [
+        "images"
+      ],
+      "colors": [
+        "credit_color",
+        "span_color",
+        "text_color"
+      ],
+      "rich": [
+        "body"
+      ]
+    }
+  }
+}

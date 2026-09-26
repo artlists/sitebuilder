@@ -1,0 +1,64 @@
+name: build-release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: SiteBuilder-Windows.exe
+          - os: macos-latest
+            artifact: SiteBuilder-macOS.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller app/sitebuilder.spec
+
+      - name: Prepare Windows artifact
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ls -la dist/
+          mv dist/SiteBuilder.exe "dist/${{ matrix.artifact }}" 2>/dev/null || true
+          ls -la dist/
+
+      - name: Prepare macOS artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          ls -la dist/
+          find dist -maxdepth 2 -name "*.app" -print
+          cd dist && zip -r "${{ matrix.artifact }}" "SiteBuilder.app"
+          ls -la
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/${{ matrix.artifact }}
+          fail_on_unmatched_files: false
+          generate_release_notes: true

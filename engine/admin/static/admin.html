@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteBuilder — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="login" class="login hidden">
+  <h1 id="loginTitle">Site · admin</h1>
+  <form id="loginForm">
+    <input id="loginUser" type="text" placeholder="username" autocomplete="username" required>
+    <input id="loginPass" type="password" placeholder="password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+    <div id="loginError" class="error"></div>
+  </form>
+</div>
+
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <span id="brand" class="brand">Site · engine</span>
+    <span id="dirty" class="dirty hidden">unsaved changes</span>
+    <div class="actions">
+      <button id="btnPreview" class="btn ghost" title="saves first, then opens">Open preview</button>
+      <button id="btnVisualEditor" class="btn ghost" title="click an element in the page to jump to its field here">Visual editor</button>
+      <button id="btnSave" class="btn primary">Save changes</button>
+      <button id="btnBuild" class="btn">Build preview</button>
+      <button id="btnPublish" class="btn publish">Publish → live</button>
+      <button id="btnPwd" class="btn ghost">Password</button>
+      <button id="btnLogout" class="btn ghost">Logout</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="topTabs"></nav>
+
+  <main>
+    <section id="tab-items" class="pane">
+      <div class="pane-head">
+        <h2 id="itemsTitle">Items</h2>
+        <button class="btn" id="btnAddItem">+ Add</button>
+      </div>
+      <div class="cards" id="itemsCards"></div>
+    </section>
+
+    <section id="tab-pages" class="pane">
+      <div class="pane-head">
+        <h2>Pages</h2>
+        <button class="btn" id="btnAddPage">+ Add page</button>
+      </div>
+      <p class="hint">Page order = menu &amp; swipe order. A page's id (the bio's «info») only changes by recreating the page.</p>
+      <div class="bio-bar">
+        <label class="sw">
+          <input type="checkbox" id="headerAnim">
+          <span class="sw-track"></span>
+          <span class="sw-label">Header animation on/off</span>
+        </label>
+        <div class="bio-bar-anim" id="headerAnimCtl"></div>
+      </div>
+      <div class="cards" id="pagesCards"></div>
+    </section>
+
+    <section id="tab-bio" class="pane">
+      <div class="pane-head">
+        <h2>Bio</h2>
+        <button class="btn" id="btnAddPara">+ Add paragraph</button>
+      </div>
+      <p class="hint">Booking/show + Bandcamp CTA is pulled from social automatically — not edited here.</p>
+      <div class="bio-bar">
+        <label class="sw">
+          <input type="checkbox" id="infoGlass">
+          <span class="sw-track"></span>
+          <span class="sw-label">Glass info text</span>
+        </label>
+      </div>
+      <div class="bio-list"></div>
+    </section>
+
+    <section id="tab-meta" class="pane">
+      <div class="pane-head"><h2>Site &amp; SEO</h2></div>
+      <div class="meta-grid"></div>
+    </section>
+
+    <section id="tab-deploy" class="pane">
+      <div class="pane-head">
+        <h2>Deploy</h2>
+        <button class="btn" id="btnSaveDeploy">Save deploy config</button>
+      </div>
+      <p class="hint">Publish → live in the top bar builds the site and deploys it to the provider below. Each provider needs its own API token for your account — tokens stay on this machine only (admin/secrets.env).</p>
+      <details class="guide">
+        <summary>Custom domain how-to</summary>
+        <ol>
+          <li>Buy/point your domain's DNS to Cloudflare (free plan works).</li>
+          <li>In the Cloudflare dashboard open <b>Workers &amp; Pages → your project → Custom domains</b> and press <b>Set up a custom domain</b>. Follow the CNAME instructions it gives you.</li>
+          <li>Wait a bit — Cloudflare issues the SSL cert automatically (usually under ~15 min).</li>
+          <li>Back here, put your domain into the <b>Site → domain</b> field in the Site &amp; SEO tab (without a trailing slash, e.g. <code>https://mysite.com</code>) — it is used for canonical and Open Graph links.</li>
+          <li>Save, then press <b>Publish → live</b> once. Done — the site answers on your domain.</li>
+          <li>Keep <code>your-project.pages.dev</code> working as the fallback address.</li>
+        </ol>
+        <p class="hint">Path-only <code>/admin/api/siteinfo</code> and image/media paths are relative, so they keep working on any domain automatically.</p>
+      </details>
+      <div class="meta-grid" id="deployGrid">
+        <fieldset>
+          <legend>Target</legend>
+          <div class="fields">
+            <label>Provider<div id="dpProvider"></div></label>
+            <label id="dpProjectWrap">Project name<input id="dpProject" autocomplete="off"></label>
+            <label id="dpRepoWrap" class="hidden">Repository<span class="field-hint">user/repo</span><input id="dpRepo" autocomplete="off" placeholder="username/repo"></label>
+            <label id="dpDomainWrap" class="hidden">Domain<input id="dpDomain" autocomplete="off" placeholder="https://…"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>API token</legend>
+          <div class="fields">
+            <label>API token<input id="dpToken" type="password" autocomplete="off" placeholder="leave empty to keep the current token"></label>
+          </div>
+          <div class="creds-status" id="dpCredsStatus"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Deploy history</legend>
+          <div class="deploy-history" id="dpHistory"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Data backup</legend>
+          <div class="fields" style="flex-direction: row; gap: 10px">
+            <button class="btn" id="btnExport">Export data.json</button>
+            <button class="btn" id="btnImport">Import data.json</button>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+          </div>
+          <div class="hint" id="backupMsg" style="padding: 0 14px 14px"></div>
+        </fieldset>
+      </div>
+    </section>
+  </main>
+
+  <section id="pwdPanel" class="publish-panel hidden">
+    <div class="pane-head">
+      <h2>Change password</h2>
+      <button id="btnClosePwd" class="btn ghost">close</button>
+    </div>
+    <div class="fields" style="max-width: 420px">
+      <label>Current password<input id="pwdCurrent" type="password" autocomplete="current-password"></label>
+      <label>New password<input id="pwdNew" type="password" autocomplete="new-password"></label>
+      <label>Repeat new password<input id="pwdNew2" type="password" autocomplete="new-password"></label>
+      <button id="btnSavePwd" class="btn primary">Update password</button>
+      <div id="pwdMsg" class="hint"></div>
+    </div>
+  </section>
+
+  <section id="sitePanel" class="publish-panel hidden">
+    <div class="pane-head">
+      <h2>New site</h2>
+      <button id="btnCloseSite" class="btn ghost">close</button>
+    </div>
+    <div class="fields" style="max-width: 420px">
+      <label>Slug (url-safe, e.g. "studio")<input id="siteSlug" type="text" autocomplete="off" placeholder="studio"></label>
+      <label>Title<input id="siteTitle" type="text" autocomplete="off" placeholder="Studio Name"></label>
+      <button id="btnCreateSite" class="btn primary">Create site</button>
+      <div id="siteMsg" class="hint"></div>
+    </div>
+  </section>
+
+  <section id="uploadPanel" class="upload-panel">
+    <div class="pane-head"><h2>Media library</h2><span class="hint">lives in the site folder, ships to the site on publish</span></div>
+    <div id="dropzone" class="dropzone">Drop files here or click to upload (images, mp4/mov/webm)</div>
+    <input id="fileInput" type="file" multiple hidden>
+    <div id="uploadMsg" class="hint"></div>
+    <div id="mediaList" class="media-list"></div>
+  </section>
+
+  <section id="publishPanel" class="publish-panel hidden">
+    <div class="pane-head">
+      <h2 id="publishTitle">Publish</h2>
+      <button id="btnClosePublish" class="btn ghost">close</button>
+    </div>
+    <pre id="publishLog" class="publish-log"></pre>
+  </section>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
