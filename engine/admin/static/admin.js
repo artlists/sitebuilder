@@ -200,6 +200,8 @@ function switchTo(key) {
     $("#tab-pages").classList.add("active");
     const ha = $("#headerAnim");
     if (ha) ha.checked = !!data.site.header_animation;
+    const sf = $("#swipeFx");
+    if (sf) sf.checked = !!data.site.swipe_fx;
     renderAnimCtl();
     renderPages();
   } else if (t.kind === "deploy") {
@@ -1337,6 +1339,8 @@ function init() {
   if (ig) ig.addEventListener("change", () => { data.site.info_glass = ig.checked; setDirty(true); });
   const ha = $("#headerAnim");
   if (ha) ha.addEventListener("change", () => { data.site.header_animation = ha.checked; setDirty(true); });
+  const sfx = $("#swipeFx");
+  if (sfx) sfx.addEventListener("change", () => { data.site.swipe_fx = sfx.checked; setDirty(true); });
 
   $("#btnSave").addEventListener("click", saveData);
   $("#btnBuild").addEventListener("click", buildOnly);

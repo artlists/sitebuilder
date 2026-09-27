@@ -40,6 +40,8 @@ PUBLISH_STATUS = ADMIN / "publish.json"
 STATIC = ADMIN / "static"
 
 HOST, PORT = "127.0.0.1", 8899
+# The packaged desktop app sets these so a second instance can be detected and
+# the launcher can report the right URL.
 if os.environ.get("SBHOST"):
     HOST = os.environ["SBHOST"]
 if os.environ.get("SBPORT"):
@@ -679,6 +681,9 @@ class Handler(BaseHTTPRequestHandler):
             body = body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if body:
@@ -1014,6 +1019,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def _build(self, inst):
         try:
+            # In-process, never a `python3 build.py` subprocess: the packaged
+            # desktop app runs this module inside the frozen interpreter and has
+            # no python3 on PATH, so shelling out breaks the Build button.
+            # The module is reloaded so the button always reflects the engine
+            # files currently on disk rather than the ones read at startup.
+            import importlib
+            importlib.reload(build)
             d = json.loads(inst["data"].read_text(encoding="utf-8"))
             template = build.TEMPLATE.read_text(encoding="utf-8")
             html = build.build(d, template, out_dir=inst["site"]) + "\n"

@@ -6,7 +6,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     {{HEAD_EXTRA}}
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <style>
         .dropdown-menu {
             will-change: transform, opacity;
@@ -58,6 +57,12 @@
         .page-fade.visible {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        /* Suppresses the section fade for one frame when a category is switched,
+           so only the cards' entrance runs. Set and cleared from script. */
+        .page-fade.no-fade {
+            transition: none !important;
         }
 
         header {
@@ -703,22 +708,88 @@
         const gallerySection = document.getElementById('gallerySection');
         const siteTitle = document.getElementById('siteTitle');
         const defaultTitle = siteTitle.textContent;
+        let userNavigated = false;
+
+        // Drop the previous category in the same tick as the click, so it can never
+        // flash under the section fade, then start the new one immediately.
+        // No wait for the section fade: that added a dead 0.45s before the cards ran.
+        function showGalleryCategory(filter) {
+            items.forEach(item => {
+                if (item.dataset.category === filter) return;
+                item.classList.remove('visible');
+                item.style.animation = '';
+                item.style.display = 'none';
+            });
+
+            showItems(filter);
+        }
+
+        // No forced reflow here. The old version read offsetHeight twice to restart
+        // the keyframe, and on the published site (main thread busy decoding a
+        // multi-MB cover) each read blocked a full layout, so the entrance lost its
+        // first frames and the glass snapped in instead of easing. A restart is not
+        // needed anyway: hiding a card drops .visible and sets display:none, and a
+        // CSS animation does not run on a display:none element, so it starts fresh
+        // on its own when display comes back.
+        function revealItem(item) {
+            item.style.display = 'block';
+            item.classList.add('visible');
+        }
+
+        function armCover(cover, onSettled) {
+            const done = (faded) => {
+                if (faded) cover.classList.add('is-ready');
+                if (onSettled) onSettled();
+            };
+            const settle = () => {
+                if (cover.decode) cover.decode().then(() => done(true), () => done(true));
+                else done(true);
+            };
+            cover.addEventListener('load', settle, { once: true });
+            cover.addEventListener('error', () => done(false), { once: true });
+            if (cover.complete) settle();
+        }
+
+        const COVER_WAIT_MS = 2500;
+
+        function revealWhenReady(item) {
+            const cover = item.querySelector('img.news-cover');
+            if (!cover) {
+                revealItem(item);
+                return;
+            }
+
+            cover.classList.remove('is-ready');
+
+            if (cover.complete) {
+                armCover(cover, () => revealItem(item));
+                return;
+            }
+
+            let released = false;
+            const release = () => {
+                if (released) return;
+                released = true;
+                clearTimeout(cap);
+                revealItem(item);
+            };
+            cover.addEventListener('load', release, { once: true });
+            cover.addEventListener('error', release, { once: true });
+            const cap = setTimeout(release, COVER_WAIT_MS);
+            armCover(cover, null);
+        }
 
         function showItems(filter) {
             currentCategory = filter;
             items.forEach(item => {
                 const match = (filter === 'all' || item.dataset.category === filter);
-                if (match) {
-                    item.style.display = 'block';
+                if (!match) {
                     item.classList.remove('visible');
-                    void item.offsetHeight;
-                    setTimeout(() => {
-                        item.classList.add('visible');
-                    }, 40);
-                } else {
-                    item.classList.remove('visible');
+                    item.style.animation = '';
                     item.style.display = 'none';
+                    return;
                 }
+                revealWhenReady(item);
             });
         }
 
@@ -727,18 +798,32 @@
                 e.preventDefault();
                 const filter = link.dataset.filter;
                 currentCategory = filter;
+                userNavigated = true;
                 menuLinks.forEach(l => l.classList.remove('active'));
                 link.classList.add('active');
 
                 infoSection.classList.add('hidden');
                 infoSection.classList.remove('visible');
-                gallerySection.style.display = 'block';
 
-                requestAnimationFrame(() => {
+                // The section has its own .page-fade entrance (opacity + translateY(20px)).
+                // Running it under the cards' blockGlassIn stacked two opacity ramps and
+                // two translateY offsets, which is what made the glass look crooked.
+                // The cards already carry the entrance, so bring the section back
+                // without a transition and let them be the only thing animating.
+                if (gallerySection.style.display === 'none') {
+                    gallerySection.style.display = 'block';
+                    gallerySection.classList.add('no-fade');
                     gallerySection.classList.add('visible');
-                });
+                    requestAnimationFrame(() => {
+                        gallerySection.classList.remove('no-fade');
+                    });
+                } else if (!gallerySection.classList.contains('visible')) {
+                    requestAnimationFrame(() => {
+                        gallerySection.classList.add('visible');
+                    });
+                }
 
-                showItems(filter);
+                showGalleryCategory(filter);
 
                 dropdownMenu.classList.remove('active');
                 menuToggle.classList.remove('active');
@@ -750,9 +835,15 @@
             menuLinks.forEach(l => l.classList.remove('active'));
             infoLink.classList.add('active');
             lastCategory = 'info';
+            userNavigated = true;
 
             gallerySection.classList.remove('visible');
             gallerySection.style.display = 'none';
+            items.forEach(item => {
+                item.classList.remove('visible');
+                item.style.animation = '';
+                item.style.display = 'none';
+            });
             infoSection.classList.remove('hidden');
 
             requestAnimationFrame(() => {
@@ -854,11 +945,45 @@
                 });
             }
 
-            showItems({{INITIAL_FILTER}});
+            let initialShown = false;
+            const showInitial = () => {
+                if (initialShown || userNavigated) return;
+                initialShown = true;
 
-            requestAnimationFrame(() => {
+                // Staged reveal, in a fixed order: the section runs its .page-fade
+                // to completion, and only then do the cards run their entrance.
+                // They used to be started together by a bare requestAnimationFrame,
+                // so on a busy main thread the section fade landed late, on top of
+                // the cards - two opacity ramps and two translateY offsets stacked.
                 gallerySection.classList.add('visible');
+
+                let started = false;
+                let sectionFallback = null;
+
+                function onSectionFade(e) {
+                    if (e.target !== gallerySection || e.propertyName !== 'opacity') return;
+                    startCards();
+                }
+
+                function startCards() {
+                    if (started) return;
+                    started = true;
+                    gallerySection.removeEventListener('transitionend', onSectionFade);
+                    if (sectionFallback) clearTimeout(sectionFallback);
+                    showItems({{INITIAL_FILTER}});
+                }
+
+                gallerySection.addEventListener('transitionend', onSectionFade);
+                sectionFallback = setTimeout(startCards, 600);
+            };
+
+            document.body.addEventListener('transitionend', function onBodyFade(e) {
+                if (e.target === document.body && e.propertyName === 'opacity') {
+                    document.body.removeEventListener('transitionend', onBodyFade);
+                    showInitial();
+                }
             });
+            setTimeout(showInitial, 900);
         });
 
         setTimeout(() => {

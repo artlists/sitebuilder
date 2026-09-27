@@ -101,7 +101,8 @@ BLOCK_GLASS_CSS = """<style data-block-glass>
 NEWS_CSS = """<style data-news>
 .gallery-item.news .news-card{position:relative;display:block;width:100%;overflow:hidden}
 .gallery-item.news .news-card::before{content:"";display:block;padding-top:100%}
-.gallery-item.news .news-cover{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s ease}
+.gallery-item.news .news-cover{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .55s ease,transform .6s ease}
+.gallery-item.news .news-cover.is-ready{opacity:1}
 .gallery-item.news .news-card:hover .news-cover{transform:scale(1.03)}
 .gallery-item.news .news-title{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;align-items:flex-end;padding:20px 24px;font-size:18px;font-weight:400;line-height:1.3;letter-spacing:.5px;color:#fff;background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,0))}
 .news-modal{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,10,12,.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);opacity:0;animation:newsIn .3s ease forwards}
@@ -123,6 +124,7 @@ NEWS_CSS = """<style data-news>
 .news-read{font-weight:700;text-decoration:none;color:inherit;border-bottom:1px solid currentColor}
 .news-read:hover{opacity:.7}
 @media (max-width:768px){.gallery-item.news .news-title{font-size:16px;padding:16px}.news-text{padding:18px 18px 22px}.news-full-title{font-size:19px}.news-modal{align-items:flex-start;padding:0;background:rgba(10,10,12,.65)}.news-panel{width:100%;max-height:100dvh;border-radius:0;border:0}}
+@media (prefers-reduced-motion: reduce){.gallery-item.news .news-cover{transition:none;opacity:1}}
 </style>"""
 
 
@@ -256,6 +258,39 @@ NAV_ANIM_JS = """<script data-nav-anim>
         });
     }
     if (document.body) bind(); else document.addEventListener("DOMContentLoaded", bind);
+})();
+</script>"""
+
+
+SWIPE_FX_CSS = """<style data-swipe-fx>
+#swipeFx{position:fixed;inset:0;z-index:1200;pointer-events:none;opacity:0}
+#swipeFx::before,#swipeFx::after{content:"";position:absolute;top:0;bottom:0;width:min(42vw,340px)}
+#swipeFx::before{left:0;background:
+    radial-gradient(ellipse 80% 55% at 8% 50%,rgba(255,255,255,.34) 0%,transparent 60%),
+    radial-gradient(ellipse 80% 55% at 8% 50%,rgba(0,0,0,.14) 0%,transparent 62%)}
+#swipeFx::after{right:0;background:
+    radial-gradient(ellipse 80% 55% at 92% 50%,rgba(255,255,255,.34) 0%,transparent 60%),
+    radial-gradient(ellipse 80% 55% at 92% 50%,rgba(0,0,0,.14) 0%,transparent 62%)}
+#swipeFx.pulse{animation:swipeFxPulse 3.4s cubic-bezier(.22,.61,.36,1) both}
+@keyframes swipeFxPulse{0%{opacity:0}18%{opacity:1}42%{opacity:.35}56%{opacity:.85}82%{opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){
+    #swipeFx{transition:opacity 1.4s ease .15s}
+    #swipeFx.pulse{animation:none;opacity:1}
+}
+</style>"""
+
+SWIPE_FX_JS = """<script data-swipe-fx>
+(function () {
+    function cue() {
+        var fx = document.createElement("div");
+        fx.id = "swipeFx";
+        (document.body || document.documentElement).appendChild(fx);
+        setTimeout(function () {
+            fx.classList.add("pulse");
+        }, 700);
+        setTimeout(function () { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 6200);
+    }
+    if (document.body) cue(); else document.addEventListener("DOMContentLoaded", cue);
 })();
 </script>"""
 
@@ -413,22 +448,35 @@ EDIT_JS = """<script data-edit>
 
 
 def convert_favicon(src, out_dir):
-    """Downscale any raster to a 32x32 favicon set (png + ico)."""
+    """Downscale any raster to a 32x32 favicon set (png + ico) plus the
+    180x180 apple-touch-icon that the template references."""
     try:
         from PIL import Image
         im = Image.open(src).convert("RGBA")
     except Exception:
         return False
-    if max(im.size) > 32:
-        im.thumbnail((32, 32), Image.LANCZOS)
-    canvas = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-    canvas.paste(im, ((32 - im.width) // 2, (32 - im.height) // 2), im)
     try:
-        canvas.save(out_dir / "favicon.png", "PNG")
-        canvas.save(out_dir / "favicon.ico", format="ICO", sizes=[(16, 16), (32, 32)])
+        if max(im.size) > 32:
+            icon = im.copy()
+            icon.thumbnail((32, 32), Image.LANCZOS)
+            canvas = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            canvas.paste(icon, ((32 - icon.width) // 2, (32 - icon.height) // 2), icon)
+            canvas.save(out_dir / "favicon.png", "PNG")
+            canvas.save(out_dir / "favicon.ico", format="ICO", sizes=[(16, 16), (32, 32)])
+
+        # iOS renders a transparent apple-touch-icon as a black square, so the
+        # 180px one is flattened onto an opaque background.
+        touch = im.copy()
+        touch.thumbnail((180, 180), Image.LANCZOS)
+        flat = Image.new("RGB", (180, 180), (255, 255, 255))
+        flat.paste(touch, ((180 - touch.width) // 2, (180 - touch.height) // 2), touch)
+        flat.save(out_dir / "apple-touch-icon.png", "PNG")
     except Exception:
         return False
     return True
+
+
+APPLE_ICON = '<link rel="apple-touch-icon" href="apple-touch-icon.png">'
 
 
 def favicon_links(favicon, out_dir):
@@ -438,8 +486,13 @@ def favicon_links(favicon, out_dir):
       - svg is kept as-is (browsers render it, no rasterisation needed)
       - png/ico up to 256px is linked as-is (legacy behaviour untouched)
       - anything else (wrong format or too big) is auto-converted to a 32x32
-        favicon.png + favicon.ico saved next to the site index
+        favicon.png + favicon.ico + 180px apple-touch-icon saved next to the
+        site index
       - unreadable/missing/remote values fall back to linking as-is
+
+    The apple-touch-icon link is only emitted when the file was actually
+    written - the template must not reference it unconditionally or every
+    generated site ships a 404.
     """
     low = favicon.lower()
     ftype = ' type="image/svg+xml"' if low.endswith(".svg") else ""
@@ -460,10 +513,15 @@ def favicon_links(favicon, out_dir):
     except Exception:
         size = None
     if size and low.endswith((".png", ".ico")) and max(size) <= 256:
-        return [f'    <link rel="icon" href="{favicon}"{ftype}>']
+        # Linked as-is, but iOS still wants a 180px icon, so generate it.
+        links = [f'    <link rel="icon" href="{favicon}"{ftype}>']
+        if convert_favicon(src, out_dir):
+            links.append("    " + APPLE_ICON)
+        return links
     if size and convert_favicon(src, out_dir):
         return ['    <link rel="icon" href="favicon.ico" sizes="any">',
-                '    <link rel="icon" href="favicon.png" type="image/png">']
+                '    <link rel="icon" href="favicon.png" type="image/png">',
+                "    " + APPLE_ICON]
     return [f'    <link rel="icon" href="{favicon}"{ftype}>']
 
 ROOT = pathlib.Path(__file__).parent
@@ -554,6 +612,9 @@ def render_head_extra(d, out_dir=None, edit=False):
         lines.append("    " + GLASS_CSS)
     if any_block_glass(d):
         lines.append("    " + BLOCK_GLASS_CSS)
+    if d["site"].get("swipe_fx"):
+        lines.append("    " + SWIPE_FX_CSS)
+        lines.append("    " + SWIPE_FX_JS)
     anim_style = d["site"].get("header_animation_style", "inside")
     if d["site"].get("header_animation"):
         lines.append("    " + NAV_ANIM_ALIGN_CSS)
@@ -578,6 +639,8 @@ def render_head_extra(d, out_dir=None, edit=False):
     if any_news(d):
         lines.append("    " + NEWS_CSS)
         lines.append("    " + NEWS_JS)
+    for preload in render_cover_preloads(d):
+        lines.append(preload)
     if edit:
         lines.append("    " + EDIT_CSS)
         lines.append("    " + EDIT_JS)
@@ -823,7 +886,7 @@ def render_news(item, category="news", site_name="", edit=""):
     return (
         f'    <div class="gallery-item news{gcls}" data-category="{category}"{ep}>\n'
         f'        <a class="news-card" href="#" role="button" aria-haspopup="dialog">\n'
-        f'            <img class="news-cover" src="{img}" alt=""{ef("img")}>\n'
+            f'            <img class="news-cover" src="{img}" alt="" decoding="async"{ef("img")}>\n'
         f'            <span class="news-title"{ss}{ef("span")}>{span}</span>\n'
         f'        </a>\n'
         f'        <div class="news-full" hidden>\n{full}\n        </div>{credit_block}\n'
@@ -861,6 +924,25 @@ def render_menu(d):
 def render_categories_js(d):
     ids = [p["id"] for p in d["pages"] if p.get("show_in_menu", True)]
     return json.dumps(ids)
+
+
+def render_cover_preloads(d):
+    """Preload the covers of the page shown on load.
+
+    The entrance animation is bound to the cover having pixels, so a cover that
+    only starts downloading once the parser reaches it gates the animation on
+    the network. A head preload takes that discovery off the critical path.
+    Only eager covers qualify - a loading="lazy" cover in a hidden card never
+    loads, and preloading it would just spend the user's bandwidth early.
+    """
+    active = initial_page_id(d) or "music"
+    out = []
+    for item in d.get(active, [])[:3]:
+        img = media_src(item.get("img", ""))
+        if not img or "://" in img or img.startswith("data:"):
+            continue
+        out.append(f'    <link rel="preload" as="image" href="{img}" fetchpriority="high">')
+    return out
 
 
 def render_gallery(d, edit=""):
